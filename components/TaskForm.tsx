@@ -26,18 +26,48 @@ const TaskForm = ({ session }: { session: Session }) => {
     defaultValues: {
       title: "",
       description: "",
+      image: "",
     },
   });
 
+  const uploadImage = async (
+    file: File
+  ): Promise<{ image_url: string; filePath: string } | null> => {
+    const filePath = `test-${Date.now()}`;
+    console.log(file);
+    const { error } = await supabase.storage
+      .from("task-images")
+      .upload(filePath, file);
+
+    if (error) {
+      console.log(error);
+      return null;
+    }
+    const { data } = await supabase.storage
+      .from("task-images")
+      .getPublicUrl(filePath);
+
+    return { image_url: data.publicUrl, filePath };
+  };
   const [isPending, startTransition] = useTransition();
   const onSubmit = async (values: TaskPayload) => {
     startTransition(async () => {
+      let image = null;
+      if (values.image) {
+        image = await uploadImage(values.image);
+      }
       const { error } = await supabase
         .from("tasks")
-        .insert({ ...values, email: session.user.email })
+        .insert({
+          title: values.title,
+          description: values.description,
+          email: session.user.email,
+          ...image,
+        })
         .select()
         .single();
       if (error) {
+        console.log(error);
         return;
       }
 
@@ -60,6 +90,29 @@ const TaskForm = ({ session }: { session: Session }) => {
                       {...field}
                       className="py-5 placeholder:font-semibold px-4"
                       placeholder="Title"
+                    />
+                  </FormControl>
+                </div>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="image"
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-muted-foreground">
+                  Image Url
+                </FormLabel>
+                <div className="relative flex items-center">
+                  <FormControl>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        field.onChange(file); // update react-hook-form value with the File object
+                      }}
                     />
                   </FormControl>
                 </div>
@@ -96,6 +149,7 @@ const TaskForm = ({ session }: { session: Session }) => {
         onClick={() => {
           logout();
         }}
+        disabled={isPending}
         className="w-full"
       >
         Sign Out

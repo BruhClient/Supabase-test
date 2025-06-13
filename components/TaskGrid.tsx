@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase-client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -11,6 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import Image from "next/image";
+import { Input } from "./ui/input";
+import { Edit } from "lucide-react";
 
 const TaskGrid = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -71,20 +74,60 @@ const TaskGrid = () => {
 
   return (
     <div className="space-y-4 w-full">
-      {tasks.map((task) => (
-        <Card key={task.id}>
-          <CardHeader>
-            <CardTitle>{task.title}</CardTitle>
-            <CardDescription>{task.description}</CardDescription>
-          </CardHeader>
-          <CardContent></CardContent>
-          <CardFooter>
-            <Button onClick={() => deleteTask(task.id)}>Delete</Button>
-          </CardFooter>
-        </Card>
-      ))}
+      {tasks.map((task) => {
+        console.log(task);
+        return (
+          <Card key={task.id}>
+            <CardHeader>
+              <CardTitle>{task.title}</CardTitle>
+              <CardDescription>{task.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Image
+                src={task.image_url ?? ""}
+                alt="task"
+                width={100}
+                height={100}
+              />
+              <UpdateInput initialTitle={task.title} email={task.email} />
+            </CardContent>
+            <CardFooter>
+              <Button onClick={() => deleteTask(task.id)}>Delete</Button>
+            </CardFooter>
+          </Card>
+        );
+      })}
     </div>
   );
 };
 
 export default TaskGrid;
+
+const UpdateInput = ({
+  initialTitle,
+  email,
+}: {
+  initialTitle: string;
+  email: string;
+}) => {
+  const [title, setTitle] = useState(initialTitle ?? "");
+  const [isPending, startTransition] = useTransition();
+  const update = () => {
+    startTransition(async () => {
+      await supabase
+        .from("tasks")
+        .update({
+          title,
+        })
+        .eq("email", email);
+    });
+  };
+  return (
+    <div className="flex gap-1 py-3">
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <Button size={"icon"} onClick={() => update()} disabled={isPending}>
+        <Edit />
+      </Button>
+    </div>
+  );
+};
